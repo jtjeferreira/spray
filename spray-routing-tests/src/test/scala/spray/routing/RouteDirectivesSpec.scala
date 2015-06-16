@@ -107,7 +107,7 @@ class RouteDirectivesSpec extends RoutingSpec {
       }
     }
     "do Content-Type negotiation for multi-marshallers" in {
-      val route = get & complete(Data("Ida", 83))
+      val route = get & complete(OK -> Data("Ida", 83))
 
       import HttpHeaders.Accept
       Get().withHeaders(Accept(MediaTypes.`application/json`)) ~> route ~> check {
@@ -155,7 +155,7 @@ class RouteDirectivesSpec extends RoutingSpec {
         <data><name>{ data.name }</name><age>{ data.age }</age></data>
       }
 
-    implicit val dataMarshaller: ToResponseMarshaller[Data] =
-      ToResponseMarshaller.oneOf(MediaTypes.`application/json`, MediaTypes.`text/xml`)(jsonMarshaller, xmlMarshaller)
+    implicit val dataMarshaller: Marshaller[Data] =
+      Marshaller.oneOf(MediaTypes.`application/json`, MediaTypes.`text/xml`)(jsonMarshaller, xmlMarshaller)
   }
 }

@@ -52,6 +52,24 @@ object Marshaller extends BasicMarshallers
         }
     }
 
+  def oneOf[T](marshalTo: ContentType*)(marshallers: Marshaller[T]*): Marshaller[T] =
+    Marshaller.of[T](marshalTo: _*) { (t, tpe, ctx) ⇒
+      def tryNext(marshallers: List[Marshaller[T]], previouslySupported: Set[ContentType]): Unit = marshallers match {
+        case head :: tail ⇒
+          head(t, new MarshallingContext {
+            def tryAccept(contentTypes: Seq[ContentType]): Option[ContentType] = ctx.tryAccept(contentTypes)
+            def rejectMarshalling(supported: Seq[ContentType]): Unit = tryNext(tail, previouslySupported ++ supported)
+            def marshalTo(entity: HttpEntity, headers: HttpHeader*): Unit = ctx.marshalTo(entity, headers: _*)
+            def handleError(error: Throwable): Unit = ctx.handleError(error)
+            def startChunkedMessage(entity: HttpEntity, ack: Option[Any] = None,
+                                    headers: Seq[HttpHeader] = Nil)(implicit sender: ActorRef): ActorRef =
+              ctx.startChunkedMessage(entity, ack, headers)(sender)
+          })
+        case Nil ⇒ ctx.rejectMarshalling(previouslySupported.toSeq)
+      }
+      tryNext(marshallers.toList, Set.empty)
+    }
+
   def delegate[A, B](marshalTo: ContentType*) = new MarshallerDelegation[A, B](marshalTo)
 
   class MarshallerDelegation[A, B](marshalTo: Seq[ContentType]) {
